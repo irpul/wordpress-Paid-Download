@@ -1,4 +1,3 @@
-=== paid download ===
 Contributors: sng.co.ir
 Donate link: https://sng.co.ir
 Tags: irpul payment, pay, payment plugin
