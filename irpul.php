@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: افزونه Paid Downalod ایرپول
-Plugin URI: http://irpul.ir/plugins
+Plugin URI: https://irpul.ir/plugins
 Description: توسط این افزونه می توانید امکان دانلود فایل پس از پرداخت وجه را در سایت خود قرار دهید.
 Version: 1.4
-Author: SimaNet.co
-Author URI: http://simanet.co
+Author: irpul.ir
+Author URI: https://irpul.ir
 License: GPL2
 */
 DPFileDownload::init();
@@ -118,7 +118,7 @@ EOT;
 		add_option("pd_email_message", $message_default, '','yes');
 		add_option("pd_email_message_nofile", $message_default_nofile, '','yes');
 		add_option("pd_expire_links_after", 7, '','yes');
-		add_option("pd_paypal_email", "", '','yes');
+		add_option("pd_token", "", '','yes');
 		add_option("pd_paypal_direct", 0 , '','yes');
 		add_option("pd_paypal_return_url", get_option("siteurl"), '','yes');
 		add_option("pd_get_hamrah", 0 , '','yes');
@@ -234,7 +234,7 @@ EOT;
 		register_setting('pd_pd_pfd_options', 'pd_email_message');
 		register_setting('pd_pd_pfd_options', 'pd_email_message_nofile');
 		register_setting('pd_pd_pfd_options', 'pd_expire_links_after', 'intval');
-		register_setting('pd_pd_pfd_options', 'pd_paypal_email');
+		register_setting('pd_pd_pfd_options', 'pd_token');
 		register_setting('pd_pd_pfd_options', 'pd_paypal_direct');
 		register_setting('pd_pd_pfd_options', 'pd_paypal_return_url');
 		register_setting('pd_pd_pfd_options', 'pd_get_hamrah');
@@ -364,7 +364,7 @@ EOT;
 
 		<br /><br /><br />
 		<div align="left" style="font-size:15px">
-			<a href="http://simanet.co" >http://simanet.co</a>
+			<a href="https://irpul.ir" target="_blank" >https://irpul.ir</a>
 		</div>
 	</div>
 	<?php
@@ -505,8 +505,8 @@ EOT;
 			<?php settings_fields('pd_pd_pfd_options'); ?>
 			<table class="form-table">
 				<tr valign="top">
-					<th scope="row">شناسه درگاه</th>
-					<td><input type="text" name="pd_paypal_email" style="width:100px;" value="<?php echo get_option('pd_paypal_email'); ?>" /><br />پس از ثبت درگاه در سایت <a href="http://irpul.ir" target="_blank">ایرپول</a> ، شناسه درگاه خود را در این فیلد وارد نمایید.</td>
+					<th scope="row">توکن درگاه</th>
+					<td><input type="text" name="pd_token" style="width:300px;" value="<?php echo get_option('pd_token'); ?>" /><br />پس از ثبت درگاه در سایت <a href="http://irpul.ir" target="_blank">ایرپول</a> ، شناسه درگاه خود را در این فیلد وارد نمایید.</td>
 				</tr>
 				<tr valign="top">
 					<th scope="row">تاريخ انقضاي لينک بعد از...</th>
@@ -559,7 +559,7 @@ EOT;
 			<thead>
 				<tr>
 					<th scope="col" id="name" width="30%" class="manage-column" style=""> محصول</th>
-                                        <th scope="col" id="name" width="20%" class="manage-column" style=""> شماره تراکنش</th>
+                    <th scope="col" id="name" width="20%" class="manage-column" style=""> شماره تراکنش</th>
 					<th scope="col" id="name" width="20%" class="manage-column" style="">تاريخ</th>
                     <th scope="col" id="name" width="20%" class="manage-column" style="">ایمیل</th>
                     <th scope="col" id="name" width="20%" class="manage-column" style="">تلفن همراه</th>
@@ -630,9 +630,13 @@ EOT;
 	<script type="text/javascript">
 		function insert_pd_pfd_button(){
 			product_id = jQuery("#dp_product_selector").val()
+
 			dp_image = jQuery("#dp_button_image_url").val()
+
+
 			//construct = '<a href="<?php echo get_option('siteurl') ?>/?dp_checkout=' + product_id + '"><img src="' + image + '" /></a>';
             construct = '<form name="frm_dp' + product_id + '" action="<?php echo get_option('siteurl') ?>/?dp_checkout=' + product_id + '" method="post"><input type="image" name="submit" src="' + dp_image + '" value="1"></form>';
+           alert(construct);
 
 			var wdw = window.dialogArguments || opener || parent || top;
 			wdw.send_to_editor(construct);
@@ -641,6 +645,7 @@ EOT;
 		function insert_pd_pfd_link(){
 			product_id = jQuery("#dp_product_selector").val()
 			construct = '<a href="<?php echo get_option('siteurl') ?>/?dp_checkout=' + product_id + '"><?php echo get_option('siteurl') ?>/?checkout=' + product_id + '</a>';
+			alert(construct)
 			var wdw = window.dialogArguments || opener || parent || top;
 			wdw.send_to_editor(construct);
 		}
@@ -658,7 +663,7 @@ EOT;
 						<tr>
 							<td width="150"><strong>محصول</strong></td>
 							<td>
-								<select id="dp_product_selector">
+								<select id="dp_product_selector" onchange="pay_code('<?php echo get_option('siteurl') ?>')">
 									<?php
 									global $wpdb;
 									$table_name = $wpdb->prefix . "pd_pfd_products";
@@ -667,12 +672,15 @@ EOT;
 									?>
 									محصولي وجود ندارد. <a href="<?php echo get_option('siteurl') . "/wp-admin/admin.php?page=paypal-file-download-products" ?>">نوشته خود را ذخيره کنيد و سپس اينجا کليک نماييد.</a>
 									<?php
-									} else {
-										foreach($products as $product) {
-									?>
-											<option value="<?php echo $product["id"] ?>"><?php echo $product["name"] ?> (<?php echo $product["cost"] ?> ریال)</option>
-									<?php
 									}
+									else {
+										echo "<option value='' >لطفا محصول مورد نظر را انتخاب نمائید</option>";
+										foreach($products as $product) {
+											$pr_id 		= $product["id"];
+											$pr_name 	= $product["name"];
+											$pr_cost 	= $product["cost"];
+											echo "<option value='$pr_id' >$pr_name ($pr_cost ریال)</option>";
+										}
 									}
 									?>
 								</select>
@@ -680,14 +688,42 @@ EOT;
 						</tr>
 						<tr>
 							<td width="135"><strong>لينک تصوير پرداخت:</strong></td>
-							<td><input type="text" id="dp_button_image_url" value="http://img.irpul.ir/buttons/pay01.png" style="width:220px;" /></td>
+							<td><input type="text" id="dp_button_image_url" value="https://irpul.ir/img/buttons/1.png" style="width:220px;" /></td>
+						</tr>
+						<tr>
+							<td width="135"><strong>کد خرید</strong></td>
+							<td><input type="text" id="payment_code" value="" style="width:320px;" /><br/>
+							به صورت دستی کد را کپی نموده و در برگه یا نوشته خود کپی نمائید
+
+								<script>
+                                    function pay_code(site_url) {
+                                        var get_pr_id = document.getElementById("dp_product_selector").value;
+
+                                        var download_img = document.getElementById("dp_button_image_url").value;
+                                        //var download_img = jQuery("#dp_button_image_url").val()
+
+                                        var sel = document.getElementById("dp_product_selector");
+                                        var get_pr_name= sel.options[sel.selectedIndex].text;
+
+										if(get_pr_id!=''){
+                                            var link = site_url + "/?dp_checkout=" + get_pr_id;
+
+											//var code = "<a href='" + link + "'  >خرید " + get_pr_name + "</a>";
+                                            var code = "<a href='" + link + "'  ><img src='" + download_img + "' /></a>";
+
+                                            document.getElementById("payment_code").value = code;
+                                        }
+                                    }
+								</script>
+							</td>
 						</tr>
 					</table>
 				</div>
 
 				<div style="padding:15px;">
-					<input type="button" class="button-primary" value="قرار دادن دکمه" onclick="insert_pd_pfd_button();"/>&nbsp;&nbsp;&nbsp;&nbsp;
+					<input type="button" class="button-primary" value="قرار دادن دکمه تصویری" onclick="insert_pd_pfd_button();"/>&nbsp;&nbsp;&nbsp;&nbsp;
 					<input type="button" class="button" value="قرار دادن لينک" onclick="insert_pd_pfd_link();"/>&nbsp;&nbsp;&nbsp;&nbsp;
+
 					<a style="font-size:0.9em;text-decoration:none;color:#555555;" href="#" onclick="tb_remove(); return false;">بستن</a>
 				</div>
 			</div>
@@ -701,7 +737,7 @@ EOT;
 		@session_start();
 		require_once('irpul.class.php');
 		$p 			= new dp_class;
-        $id 		= get_option('pd_paypal_email');
+        $id 		= get_option('pd_token');
 		$this_script= get_option('siteurl');
 		$amount 	= $_SESSION['m-amount'];
 		
@@ -715,101 +751,112 @@ EOT;
 			$refcode	= $ir_output['refcode'];
 			$status 	= $ir_output['status'];
 			
-			if($status == 'paid')	
-			{
+			if($status == 'paid'){
 				$result 	= self::get($id,$trans_id,$amount);
 				//$result=1;
 				//if( $result['res_code'] === 1 ) - line 958
-				if ($result == 1) {
-					global $wpdb;
-					$table_name = $wpdb->prefix . "pd_pfd_orders";
-					$order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE order_code = '$order_id' AND fulfilled = 0",$trans_id) , ARRAY_A, 0);
-					
-					$wpdb->update( $table_name, array('fulfilled' => 1), array('id' => $order["id"]));
+				if( isset($result['http_code']) ){
+					$data =  json_decode($result['data'],true);
 
-					$table_name = $wpdb->prefix . "pd_pfd_products";
-					$product = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d",$order["product_id"]) , ARRAY_A, 0);
+					if( isset($data['code']) && $data['code'] === 1){
+						global $wpdb;
+						$table_name = $wpdb->prefix . "pd_pfd_orders";
+						$order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE order_code = '$order_id' AND fulfilled = 0",$trans_id) , ARRAY_A, 0);
 
-					$wpdb->update( $table_name, array('downloads' => $product["downloads"] + 1), array('id' => $product["id"]));
-					
-					/*
-					// vars we want to extract
-					$fields = "protection_eligibility address_status payer_id tax payment_date payment_status first_name last_name payer_status business address_name address_street address_city address_state address_zip address_country_code address_country quantity verify_sign payer_email txn_id payment_type receiver_email receiver_id txn_type item_name mc_currency item_number residence_country custom receipt_id transaction_subject payment_fee payment_gross";
-					$fields_a = explode(" ",$fields);
-					foreach($fields_a as $field) {
-						$trans[$field] = isset($_POST[$field]) ? $_POST[$field] : NULL;
-					}
-					*/
-					
+						$wpdb->update( $table_name, array('fulfilled' => 1), array('id' => $order["id"]));
 
-					@session_start();
-					$trans = array();
-					$trans["product_id"] 	= $product["id"];
-					$trans["order_code"] 	= $trans_id;
-					$trans["order_id"] 		= $order["id"];
-					$trans["payer_email"]	= $_SESSION['email'] . ' | ' . $_SESSION['telNo'] ;
-					$trans["created_at"] 	= time();
-					
-					//print_r($trans);
+						$table_name = $wpdb->prefix . "pd_pfd_products";
+						$product = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d",$order["product_id"]) , ARRAY_A, 0);
 
-					// insert into transactions
-					$table_name = $wpdb->prefix . "pd_pfd_transactions";
-					$wpdb->insert($table_name, $trans);
+						$wpdb->update( $table_name, array('downloads' => $product["downloads"] + 1), array('id' => $product["id"]));
 
-					// download link
-					if(get_option("pd_paypal_direct") == 'on'){
-						//&linkNo = 1
-						$download_link = $product["file"];
-						$download_name = $product["name"];
-						
-						$expld = explode(" | ", $download_link);
-						$download_link 	= $expld[0];
-						$secDl 			= $expld[1];
-						
-						$download_link = "
+						/*
+						// vars we want to extract
+						$fields = "protection_eligibility address_status payer_id tax payment_date payment_status first_name last_name payer_status business address_name address_street address_city address_state address_zip address_country_code address_country quantity verify_sign payer_email txn_id payment_type receiver_email receiver_id txn_type item_name mc_currency item_number residence_country custom receipt_id transaction_subject payment_fee payment_gross";
+						$fields_a = explode(" ",$fields);
+						foreach($fields_a as $field) {
+							$trans[$field] = isset($_POST[$field]) ? $_POST[$field] : NULL;
+						}
+						*/
+
+						@session_start();
+						$trans = array();
+						$trans["product_id"] 	= $product["id"];
+						$trans["order_code"] 	= $trans_id;
+						$trans["order_id"] 		= $order["id"];
+						$trans["payer_email"]	= $_SESSION['email'] . ' | ' . $_SESSION['telNo'] ;
+						$trans["created_at"] 	= time();
+
+						//print_r($trans);
+
+						// insert into transactions
+						$table_name = $wpdb->prefix . "pd_pfd_transactions";
+						$wpdb->insert($table_name, $trans);
+
+						// download link
+						if(get_option("pd_paypal_direct") == 'on'){
+							//&linkNo = 1
+							$download_link = $product["file"];
+							$download_name = $product["name"];
+
+							$expld = explode(" | ", $download_link);
+							$download_link 	= $expld[0];
+							$secDl 			= $expld[1];
+
+							$download_link = "
 						<a href='$download_link' target='_blank'>$download_name</a>
 						<br/>لینک دوم: <a href='$secDl' target='_blank'>$download_name</a>";
-					}else{
-						$download_link = get_option('siteurl') . "/?dp_download=" . urlencode($trans_id);
-						$download_link = "
+						}else{
+							$download_link = get_option('siteurl') . "/?dp_download=" . urlencode($trans_id);
+							$download_link = "
 						<a href='$download_link&dp_linkNo=1' target='_blank'>$download_link</a>
 						<br/> لینک دوم: <a href='$download_link&dp_linkNo=2' target='_blank'>$download_link</a>";
-					}
-					
-					// get email text
-					$emailtext = get_option('pd_email_message');
-					$emailtext = str_replace("[DOWNLOAD_LINK]",$download_link,$emailtext);
-					$emailtext = str_replace("[PRODUCT_NAME]",$download_name,$emailtext);
-					$emailtext = str_replace("[TRANSACTION_ID]",$trans_id,$emailtext);
-					$emailtext = str_replace("[ORDER_ID]",$order_id,$emailtext);
-					$emailtext = $emailtext . "<br /><br />
+						}
+
+						// get email text
+						$emailtext = get_option('pd_email_message');
+						$emailtext = str_replace("[DOWNLOAD_LINK]",$download_link,$emailtext);
+						$emailtext = str_replace("[PRODUCT_NAME]",$download_name,$emailtext);
+						$emailtext = str_replace("[TRANSACTION_ID]",$trans_id,$emailtext);
+						$emailtext = str_replace("[ORDER_ID]",$order_id,$emailtext);
+						$emailtext = $emailtext . "<br /><br />
 					<span style='color:red'>توجه: </span>لینک دانلود فقط برای یک بار قابل استفاده است. در صورتی که موفق به دانلود نشدید با مدیریت سایت تماس بگیرید
 					<br />لينک دانلود شما:<br />" . $download_link;
 
-					// fantastic, now send them a message
+						// fantastic, now send them a message
 
-					$message = $emailtext;
-					echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما 
+						$message = $emailtext;
+						echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما 
 					<font color='green'><b>مـوفق بود</b></font>
 					<br/>
 					<p align='right' style='margin-right:15px'>".nl2br($message)."</p>
 					<a href='",get_option('siteurl'),"'>بازگشت به صفحه اصلي</a>
 					<br/><br/>
 					</div>";
-					@session_start();
-					$headers = "From: <no-reply@yahoo.com>\n";
-					$headers .= "MIME-Version: 1.0\n";
-					$headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
-					error_reporting(0);
-					mail($_SESSION['email'],'اطلاعات پرداخت',$emailtext,$headers);
-					wp_mail( $_SESSION['email'], 'اطلاعات پرداخت', $emailtext, $headers );
-
+						@session_start();
+						$headers = "From: <no-reply@yahoo.com>\n";
+						$headers .= "MIME-Version: 1.0\n";
+						$headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
+						error_reporting(0);
+						mail($_SESSION['email'],'اطلاعات پرداخت',$emailtext,$headers);
+						wp_mail( $_SESSION['email'], 'اطلاعات پرداخت', $emailtext, $headers );
+					}
+					else{
+						echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما <font color='red'><b>نـاموفق بود</b></font>.
+						<br/>
+						<p align='right' style='margin-right:15px'>
+						<br/>- پیش از خرید دوباره با مدیر سایت تماس گرفته و وضعیت خرید خود با شماره تراکنش $trans_id را پیگیری نمائید.
+						<br/>- کد خطا : " .$data['code'] . '<br/>' . $data['status'] . "
+						<br/><a href='".get_option('siteurl')."'>بازگشت به صفحه اصلي</a>
+						</p>
+						</div>";
+					}
 				}else{
 					echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما <font color='red'><b>نـاموفق بود</b></font>.
 					<br/>
 					<p align='right' style='margin-right:15px'>
 					<br/>- پیش از خرید دوباره با مدیر سایت تماس گرفته و وضعیت خرید خود با شماره تراکنش $trans_id را پیگیری نمائید.
-					<br/>- کد خطا : " .$result . "
+					<br/>- پاسخی از سرویس دهنده دریافت نشد. لطفا دوباره تلاش نمائید
 					<br/><a href='".get_option('siteurl')."'>بازگشت به صفحه اصلي</a>
 					</p>
 					</div>";
@@ -848,17 +895,78 @@ EOT;
 		}
 	}
 
-	public static function get($api,$tran_id,$amount){
-		$parameters = array
-		(
-			'webgate_id'	=> $api,
-			'tran_id' 		=> $tran_id,
+	public static function post_data($url,$params,$token) {
+		ini_set('default_socket_timeout', 15);
+
+		$headers = array(
+			"Authorization: token= {$token}",
+			'Content-type: application/json'
+		);
+
+		$handle = curl_init($url);
+		curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 30);
+		curl_setopt($handle, CURLOPT_TIMEOUT, 40);
+
+		curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($params) );
+		curl_setopt($handle, CURLOPT_HTTPHEADER, $headers );
+
+		$response = curl_exec($handle);
+		//error_log('curl response1 : '. print_r($response,true));
+
+		$msg='';
+		$http_code = intval(curl_getinfo($handle, CURLINFO_HTTP_CODE));
+
+		$status= true;
+
+		if ($response === false) {
+			$curl_errno = curl_errno($handle);
+			$curl_error = curl_error($handle);
+			$msg .= "Curl error $curl_errno: $curl_error";
+			$status = false;
+		}
+
+		curl_close($handle);//dont move uppder than curl_errno
+
+		if( $http_code == 200 ){
+			$msg .= "Request was successfull";
+		}
+		else{
+			$status = false;
+			if ($http_code == 400) {
+				$status = true;
+			}
+			elseif ($http_code == 401) {
+				$msg .= "Invalid access token provided";
+			}
+			elseif ($http_code == 502) {
+				$msg .= "Bad Gateway";
+			}
+			elseif ($http_code >= 500) {// do not wat to DDOS server if something goes wrong
+				sleep(2);
+			}
+		}
+
+		$res['http_code'] 	= $http_code;
+		$res['status'] 		= $status;
+		$res['msg'] 		= $msg;
+		$res['data'] 		= $response;
+
+		if(!$status){
+			//error_log(print_r($res,true));
+		}
+		return $res;
+	}
+
+	public static function get($token,$tran_id,$amount){
+		$parameters = array(
+			'method' 	    => 'verify',
+			'trans_id' 		=> $tran_id,
 			'amount'	 	=> $amount,
 		);
-		try {
-			$client = new SoapClient('https://irpul.ir/webservice.php?wsdl' , array('soap_version'=>'SOAP_1_2','cache_wsdl'=>WSDL_CACHE_NONE ,'encoding'=>'UTF-8'));
-			$result = $client->PaymentVerification($parameters);
-		}catch (Exception $e) { echo 'Error'. $e->getMessage();  }
+
+		$result =  post_data('https://irpul.ir/ws.php', $parameters, $token );
+
 		return $result;
 	}
 	
@@ -891,6 +999,7 @@ EOT;
 		</div><div style="display:none">
 		';
 	}
+
 	public static function var_listener() {
          if(get_query_var("dp_checkout")==NULL) {
 			if(get_query_var("dp_download")==NULL) {
@@ -966,7 +1075,7 @@ EOT;
 	
 				// construct order
 				$table_name 			= $wpdb->prefix . "pd_pfd_orders";
-				$webgate_id				= get_option('pd_paypal_email');
+				$token					= get_option('pd_token');
 				$resnum					= rand(10000,100000);
 				$amount 				= $product["cost"];
 				$product_name 			= $product["name"];
@@ -974,10 +1083,8 @@ EOT;
 				$_SESSION['m-amount'] 	= $amount;
 				$redirect 				= get_option('siteurl') . "/?pd_pfd_action=ipn";
 				
-				$parameters = array
-				(
-					'plugin'		=> 'PaidDownload',
-					'webgate_id' 	=> $webgate_id,
+				$parameters = array(
+					'method' 		=> 'payment',
 					'order_id'		=> $resnum,
 					'phone' 		=> '',
 					'email' 		=> $payer_mail,
@@ -988,26 +1095,37 @@ EOT;
 					'callback_url' 	=> $redirect,
 					'address' 		=> '',
 					'description' 	=> $file_dl_link,
+					'test_mode' 	=> false
 				);
-				try {
-					$client = new SoapClient('https://irpul.ir/webservice.php?wsdl' , array('soap_version'=>'SOAP_1_2','cache_wsdl'=>WSDL_CACHE_NONE ,'encoding'=>'UTF-8'));
-					$result = $client->Payment($parameters);
-				}catch (Exception $e) { echo 'Error'. $e->getMessage();  }
-				
-				if( $result['res_code'] === 1 ){
-					$wpdb->insert( $table_name, array('product_id' => $product_id, 'order_code' => $resnum, 'fulfilled' => 0, 'created_at' => time(), 'cost' => $product["cost"]), array( '%d', '%s', '%d', '%d', '%s') );
-					header("Location: " . $result['url']);
+
+				$result 	= post_data('https://irpul.ir/ws.php', $parameters, $token );
+
+				if( isset($result['http_code']) ){
+					$data =  json_decode($result['data'],true);
+
+					if( isset($data['code']) && $data['code'] === 1){
+						$wpdb->insert( $table_name, array('product_id' => $product_id, 'order_code' => $resnum, 'fulfilled' => 0, 'created_at' => time(), 'cost' => $product["cost"]), array( '%d', '%s', '%d', '%d', '%s') );
+
+						header("Location: " . $data['url']);
+						exit;
+					}
+					else{
+						echo "Error Code: ".$data['code'] . ' ' . $data['status'];
+						exit;
+					}
 				}else{
-					echo $result['res_code'] . ' ' . $result['status'];
-					exit();
+					echo 'پاسخی از سرویس دهنده دریافت نشد. لطفا دوباره تلاش نمائید';
+					exit;
 				}
-			}else{
+			}
+			else{
 				self::get_email();
 				exit();
 			}
 		}
     }
-	// make sure we have the paypal action listener available
+
+    // make sure we have the paypal action listener available
 	public static function register_vars($vars) {
 		$vars[] = "pd_pfd_action";
 		$vars[] = "dp_checkout";
