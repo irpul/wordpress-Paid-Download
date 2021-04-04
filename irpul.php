@@ -745,7 +745,7 @@ EOT;
 		$decrypted 		= self::url_decrypt( $irpul_token );
 		if($decrypted['status']){
 			parse_str($decrypted['data'], $ir_output);
-			$trans_id 	= $ir_output['tran_id'];
+			$trans_id 	= $ir_output['trans_id'];
 			$order_id 	= $ir_output['order_id'];
 			$amount 	= $ir_output['amount'];
 			$refcode	= $ir_output['refcode'];
@@ -881,7 +881,7 @@ EOT;
 		}
 		$decrypted = base64_decode($data);
 		
-		$check = array('tran_id','order_id','amount','refcode','status');
+		$check = array('trans_id','order_id','amount','refcode','status');
 		foreach($check as $str){
 			str_replace($str,'',$decrypted,$count);
 			if($count > 0){
@@ -958,10 +958,10 @@ EOT;
 		return $res;
 	}
 
-	public static function get($token,$tran_id,$amount){
+	public static function get($token,$trans_id,$amount){
 		$parameters = array(
 			'method' 	    => 'verify',
-			'trans_id' 		=> $tran_id,
+			'trans_id' 		=> $trans_id,
 			'amount'	 	=> $amount,
 		);
 
