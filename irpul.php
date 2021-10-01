@@ -907,7 +907,7 @@ EOT;
 		curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 30);
 		curl_setopt($handle, CURLOPT_TIMEOUT, 40);
-
+		curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($params) );
 		curl_setopt($handle, CURLOPT_HTTPHEADER, $headers );
 
