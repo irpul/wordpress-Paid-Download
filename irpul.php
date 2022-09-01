@@ -741,15 +741,12 @@ EOT;
 		$this_script= get_option('siteurl');
 		$amount 	= $_SESSION['m-amount'];
 		
-		$irpul_token 	= $_GET['irpul_token'];
-		$decrypted 		= self::url_decrypt( $irpul_token );
-		if($decrypted['status']){
-			parse_str($decrypted['data'], $ir_output);
-			$trans_id 	= $ir_output['trans_id'];
-			$order_id 	= $ir_output['order_id'];
-			$amount 	= $ir_output['amount'];
-			$refcode	= $ir_output['refcode'];
-			$status 	= $ir_output['status'];
+		if( isset($_POST['trans_id']) && isset($_POST['order_id']) && isset($_POST['amount']) && isset($_POST['refcode']) && isset($_POST['status']) ){
+			$trans_id 	= $_POST['trans_id'];
+			$order_id 	= $_POST['order_id'];
+			$amount 	= $_POST['amount'];
+			$refcode	= $_POST['refcode'];
+			$status 	= $_POST['status'];
 			
 			if($status == 'paid'){
 				$result 	= self::get($id,$trans_id,$amount);
@@ -759,87 +756,91 @@ EOT;
 					$data =  json_decode($result['data'],true);
 
 					if( isset($data['code']) && $data['code'] === 1){
-						global $wpdb;
-						$table_name = $wpdb->prefix . "pd_pfd_orders";
-						$order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE order_code = '$order_id' AND fulfilled = 0",$trans_id) , ARRAY_A, 0);
+						$irpul_amount  = $data['amount'];
 
-						$wpdb->update( $table_name, array('fulfilled' => 1), array('id' => $order["id"]));
+						if($amount == $irpul_amount){
+							//paid
+							global $wpdb;
+							$table_name = $wpdb->prefix . "pd_pfd_orders";
+							$order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE order_code = '$order_id' AND fulfilled = 0",$trans_id) , ARRAY_A, 0);
 
-						$table_name = $wpdb->prefix . "pd_pfd_products";
-						$product = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d",$order["product_id"]) , ARRAY_A, 0);
+							$wpdb->update( $table_name, array('fulfilled' => 1), array('id' => $order["id"]));
 
-						$wpdb->update( $table_name, array('downloads' => $product["downloads"] + 1), array('id' => $product["id"]));
+							$table_name = $wpdb->prefix . "pd_pfd_products";
+							$product = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d",$order["product_id"]) , ARRAY_A, 0);
 
-						/*
-						// vars we want to extract
-						$fields = "protection_eligibility address_status payer_id tax payment_date payment_status first_name last_name payer_status business address_name address_street address_city address_state address_zip address_country_code address_country quantity verify_sign payer_email txn_id payment_type receiver_email receiver_id txn_type item_name mc_currency item_number residence_country custom receipt_id transaction_subject payment_fee payment_gross";
-						$fields_a = explode(" ",$fields);
-						foreach($fields_a as $field) {
-							$trans[$field] = isset($_POST[$field]) ? $_POST[$field] : NULL;
+							$wpdb->update( $table_name, array('downloads' => $product["downloads"] + 1), array('id' => $product["id"]));
+
+							/*
+							// vars we want to extract
+							$fields = "protection_eligibility address_status payer_id tax payment_date payment_status first_name last_name payer_status business address_name address_street address_city address_state address_zip address_country_code address_country quantity verify_sign payer_email txn_id payment_type receiver_email receiver_id txn_type item_name mc_currency item_number residence_country custom receipt_id transaction_subject payment_fee payment_gross";
+							$fields_a = explode(" ",$fields);
+							foreach($fields_a as $field) {
+								$trans[$field] = isset($_POST[$field]) ? $_POST[$field] : NULL;
+							}
+							*/
+
+							@session_start();
+							$trans = array();
+							$trans["product_id"] 	= $product["id"];
+							$trans["order_code"] 	= $trans_id;
+							$trans["order_id"] 		= $order["id"];
+							$trans["payer_email"]	= $_SESSION['email'] . ' | ' . $_SESSION['telNo'] ;
+							$trans["created_at"] 	= time();
+
+							//print_r($trans);
+
+							// insert into transactions
+							$table_name = $wpdb->prefix . "pd_pfd_transactions";
+							$wpdb->insert($table_name, $trans);
+
+							// download link
+							if(get_option("pd_paypal_direct") == 'on'){
+								//&linkNo = 1
+								$download_link = $product["file"];
+								$download_name = $product["name"];
+
+								$expld = explode(" | ", $download_link);
+								$download_link 	= $expld[0];
+								$secDl 			= $expld[1];
+
+								$download_link = "<a href='$download_link' target='_blank'>$download_name</a><br/>لینک دوم: <a href='$secDl' target='_blank'>$download_name</a>";
+							}else{
+								$download_link = get_option('siteurl') . "/?dp_download=" . urlencode($trans_id);
+								$download_link = "<a href='$download_link&dp_linkNo=1' target='_blank'>$download_link</a><br/> لینک دوم: <a href='$download_link&dp_linkNo=2' target='_blank'>$download_link</a>";
+							}
+
+							// get email text
+							$emailtext = get_option('pd_email_message');
+							$emailtext = str_replace("[DOWNLOAD_LINK]",$download_link,$emailtext);
+							$emailtext = str_replace("[PRODUCT_NAME]",$download_name,$emailtext);
+							$emailtext = str_replace("[TRANSACTION_ID]",$trans_id,$emailtext);
+							$emailtext = str_replace("[ORDER_ID]",$order_id,$emailtext);
+							$emailtext = $emailtext . "<br /><br />
+							<span style='color:red'>توجه: </span>لینک دانلود فقط برای یک بار قابل استفاده است. در صورتی که موفق به دانلود نشدید با مدیریت سایت تماس بگیرید
+							<br />لينک دانلود شما:<br />" . $download_link;
+
+							// fantastic, now send them a message
+
+							$message = $emailtext;
+							echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما 
+							<font color='green'><b>مـوفق بود</b></font><br/><p align='right' style='margin-right:15px'>".nl2br($message)."</p>
+							<a href='",get_option('siteurl'),"'>بازگشت به صفحه اصلي</a><br/><br/></div>";
+							
+							@session_start();
+							$headers = "From: <no-reply@yahoo.com>\n";
+							$headers .= "MIME-Version: 1.0\n";
+							$headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
+							
+							error_reporting(0);
+							mail($_SESSION['email'],'اطلاعات پرداخت',$emailtext,$headers);
+							wp_mail( $_SESSION['email'], 'اطلاعات پرداخت', $emailtext, $headers );
 						}
-						*/
-
-						@session_start();
-						$trans = array();
-						$trans["product_id"] 	= $product["id"];
-						$trans["order_code"] 	= $trans_id;
-						$trans["order_id"] 		= $order["id"];
-						$trans["payer_email"]	= $_SESSION['email'] . ' | ' . $_SESSION['telNo'] ;
-						$trans["created_at"] 	= time();
-
-						//print_r($trans);
-
-						// insert into transactions
-						$table_name = $wpdb->prefix . "pd_pfd_transactions";
-						$wpdb->insert($table_name, $trans);
-
-						// download link
-						if(get_option("pd_paypal_direct") == 'on'){
-							//&linkNo = 1
-							$download_link = $product["file"];
-							$download_name = $product["name"];
-
-							$expld = explode(" | ", $download_link);
-							$download_link 	= $expld[0];
-							$secDl 			= $expld[1];
-
-							$download_link = "
-						<a href='$download_link' target='_blank'>$download_name</a>
-						<br/>لینک دوم: <a href='$secDl' target='_blank'>$download_name</a>";
-						}else{
-							$download_link = get_option('siteurl') . "/?dp_download=" . urlencode($trans_id);
-							$download_link = "
-						<a href='$download_link&dp_linkNo=1' target='_blank'>$download_link</a>
-						<br/> لینک دوم: <a href='$download_link&dp_linkNo=2' target='_blank'>$download_link</a>";
+						else{
+							$error_msg = 'مبلغ تراکنش در ایرپول (' . number_format($irpul_amount) . ' تومان) تومان با مبلغ تراکنش در سیمانت (' . number_format($amount) . ' تومان) برابر نیست';
+							echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما <font color='red'><b>نـاموفق بود</b></font>.
+							<br/><p align='right' style='margin-right:15px'><br/>- خطا : " .$error_msg . "<br/><a href='".get_option('siteurl')."'>بازگشت به صفحه اصلي</a></p></div>";
 						}
-
-						// get email text
-						$emailtext = get_option('pd_email_message');
-						$emailtext = str_replace("[DOWNLOAD_LINK]",$download_link,$emailtext);
-						$emailtext = str_replace("[PRODUCT_NAME]",$download_name,$emailtext);
-						$emailtext = str_replace("[TRANSACTION_ID]",$trans_id,$emailtext);
-						$emailtext = str_replace("[ORDER_ID]",$order_id,$emailtext);
-						$emailtext = $emailtext . "<br /><br />
-					<span style='color:red'>توجه: </span>لینک دانلود فقط برای یک بار قابل استفاده است. در صورتی که موفق به دانلود نشدید با مدیریت سایت تماس بگیرید
-					<br />لينک دانلود شما:<br />" . $download_link;
-
-						// fantastic, now send them a message
-
-						$message = $emailtext;
-						echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما 
-					<font color='green'><b>مـوفق بود</b></font>
-					<br/>
-					<p align='right' style='margin-right:15px'>".nl2br($message)."</p>
-					<a href='",get_option('siteurl'),"'>بازگشت به صفحه اصلي</a>
-					<br/><br/>
-					</div>";
-						@session_start();
-						$headers = "From: <no-reply@yahoo.com>\n";
-						$headers .= "MIME-Version: 1.0\n";
-						$headers .= 'Content-type: text/html; charset=utf-8' . "\r\n";
-						error_reporting(0);
-						mail($_SESSION['email'],'اطلاعات پرداخت',$emailtext,$headers);
-						wp_mail( $_SESSION['email'], 'اطلاعات پرداخت', $emailtext, $headers );
 					}
 					else{
 						echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما <font color='red'><b>نـاموفق بود</b></font>.
@@ -868,33 +869,10 @@ EOT;
 			}
 		}
 		else{
-			echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما <font color='red'><b>نـاموفق بود</b></font>.<br/><p align='right' style='margin-right:15px'> توکن صحیح نیست<br/><a href='".get_option('siteurl')."'>بازگشت به صفحه اصلي</a></p></div>";
+			echo "<div align='center' dir='rtl' style='font-family:tahoma;font-size:11px;border:1px dotted #c3c3c3; width:60%; line-height:20px;margin-left:20%'>تراکنش شما <font color='red'><b>نـاموفق بود</b></font>.<br/><p align='right' style='margin-right:15px'> undefined callback parameters<br/><a href='".get_option('siteurl')."'>بازگشت به صفحه اصلي</a></p></div>";
 		}
 	}
 	
-	public static function url_decrypt($string){
-		$counter = 0;
-		$data = str_replace(array('-','_','.'),array('+','/','='),$string);
-		$mod4 = strlen($data) % 4;
-		if ($mod4) {
-		$data .= substr('====', $mod4);
-		}
-		$decrypted = base64_decode($data);
-		
-		$check = array('trans_id','order_id','amount','refcode','status');
-		foreach($check as $str){
-			str_replace($str,'',$decrypted,$count);
-			if($count > 0){
-				$counter++;
-			}
-		}
-		if($counter === 5){
-			return array('data'=>$decrypted , 'status'=>true);
-		}else{
-			return array('data'=>'' , 'status'=>false);
-		}
-	}
-
 	public static function post_data($url,$params,$token) {
 		ini_set('default_socket_timeout', 15);
 
